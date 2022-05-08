@@ -1,12 +1,11 @@
-import string
-import random
-import os
+import string, random, os, time
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives import padding as pd
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.asymmetric import utils
 from cryptography.hazmat.primitives import hashes, hmac
@@ -62,9 +61,9 @@ def generate_elliptic_curve_diffie_helman_key_pair(key):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
-
-    write_to_file("_private.pem", pem_private, key)
-    write_to_file("_public.pem", pem_public, key)
+     
+    write_to_file(key + "_private.pem", pem_private)
+    write_to_file(key + "_public.pem", pem_public)
 
     return private_key, public_key
 
@@ -187,7 +186,7 @@ def verify_digital_signature(public_key, message, signature):
 # 4. AES Encryption
 
 def encrypt_with_AES(key, mode, data, size):
-    padder = padding.PKCS7(128).padder()
+    padder = pd.PKCS7(len(key)* 8).padder()
     padded_data = padder.update(data)
     padded_data += padder.finalize()
 
@@ -195,14 +194,23 @@ def encrypt_with_AES(key, mode, data, size):
     iv = os.urandom(size)
     cipher = Cipher(algorithms.AES(key), mode(iv))
     encryptor = cipher.encryptor()
-    ct = encryptor.update(padded_data) + encryptor.finalize()
 
-    return ct, cipher
+    start = time.time()
+    cipher_text = encryptor.update(padded_data) + encryptor.finalize()
+    end = time.time()
+    print("Elapsed time while encrypting: " + str(end - start) + ' secs')
 
-def decrypt_with_AES(ct, cipher):
+    return cipher_text, cipher
+
+def decrypt_with_AES(cipher_text, cipher):
     decryptor = cipher.decryptor()
     
-    return decryptor.update(ct) + decryptor.finalize()
+    start = time.time()
+    decrypted = decryptor.update(cipher_text) + decryptor.finalize()
+    end = time.time()
+    print("Elapsed time while decrypting: " + str(end - start) + ' secs')
+
+    return decrypted
 
 # 5. Message Authentication Codes
 def message_auth(key, message):
@@ -222,9 +230,9 @@ def hasher_fn(message):
     return digest, chosen_hash
 
 
-def write_to_file(fileName, pem, key):
-    f = open(key + fileName, "wb")
-    f.write(pem)
+def write_to_file(fileName, data):
+    f = open(fileName, "wb")
+    f.write(data)
     f.close()
 
 
@@ -263,12 +271,54 @@ print("Message auth digest: " + str(signature2))
 
 
 # 4. AES Encryption
-f = open("img.PNG", "rb")
-data = f.read()
+# img = "img.png"
+# f = open(img, "rb")
+# data = f.read()
+# img_aes = "img_aes.png"
+# ct, cipher = encrypt_with_AES(key_1, modes.CBC, data, 16)
+# decrypted_data = decrypt_with_AES(ct, cipher)
 
-ct, cipher = encrypt_with_AES(key_1, modes.CBC, [], 16)
-print(decrypt_with_AES(ct, cipher))
+# unpadder = pd.PKCS7(128).unpadder()
+# aaa  = unpadder.update(decrypted_data)
+# aaa + unpadder.finalize()
+
+# write_to_file(img_aes, aaa)
+
+
+# print(open("img.png","rb").read() == open("img_aes.png","rb").read())
+
 ##encrypt_with_AES(key_2, modes.CBC, data, 8)
+
+
+img = "img.png"
+f = open(img, "rb")
+data = f.read()
+img_aes = "img_aes.png"
+
+## 4. i - a-b-c-d
+print('\n')
+cipher_text, cipher = encrypt_with_AES(key_1, modes.CBC, data, 16)
+cipher_text_2, cipher_2 = encrypt_with_AES(key_1, modes.CBC, data, 16)
+print("For 4.i, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
+
+decrypted_data = decrypt_with_AES(cipher_text, cipher)
+
+
+## 4. ii - a-b-c-d
+print('\n')
+cipher_text, cipher = encrypt_with_AES(key_2, modes.CBC, data, 16)
+cipher_text_2, cipher_2 = encrypt_with_AES(key_2, modes.CBC, data, 16)
+print("For 4.ii, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
+decrypted_data = decrypt_with_AES(cipher_text, cipher)
+
+
+## 4. iii - a-b-c-d
+print('\n')
+cipher_text, cipher = encrypt_with_AES(key_3, modes.CTR, data, 16)
+cipher_text_2, cipher_2 = encrypt_with_AES(key_3, modes.CTR, data, 16)
+print("For 4.iii, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
+decrypted_data = decrypt_with_AES(cipher_text, cipher)
+
 
 
 
