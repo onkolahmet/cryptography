@@ -102,9 +102,9 @@ def key_encrypt_decrypt(public_key, private_key, message):
         )
     )
 
-    print("Cipher:" + str(ciphertext))
-    print("Plain:" + str(plaintext))
-    print("Is plaintext and message same: " + str(plaintext == message))
+    print("Encrypted key:" + str(ciphertext))
+    print("Decrypted key:" + str(plaintext))
+    print("Are decrypted key and original key same: " + str(plaintext == message))
 
     return ciphertext, plaintext
 
@@ -140,7 +140,7 @@ def generate_symmetric_with_ECDH(private_key_1, public_key_1, private_key_2, pub
     
 # 3. Generation and Verification of Digital Signature
 def generate_digital_signature(private_key, message):
-    digest, chosen_hash = hasher_fn(message)
+    digest, hash_function = hasher_fn(message)
    
     signature = private_key.sign(
         digest,
@@ -148,26 +148,23 @@ def generate_digital_signature(private_key, message):
             mgf=padding.MGF1(hashes.SHA256()),
             salt_length=padding.PSS.MAX_LENGTH
         ),
-        utils.Prehashed(chosen_hash)
+        utils.Prehashed(hash_function)
     )
-    
     
     data = "****************Generator*************" + '\n' 
     data += "m: " + message + '\n'
     data += "H(m): " + str(digest) + '\n'
     data += "Digital Signature: " + str(signature)
     filename = "digital_signiture.txt"
-    write_to_file(filename, bytes(data, "utf-8s"))
+    write_to_file(filename, bytes(data, "utf-8"))
 
     return signature
 
 def verify_digital_signature(public_key, message, signature):
    
-    digest, chosen_hash = hasher_fn(message)
+    digest, hash_function = hasher_fn(message)
 
-    
-    ## If the signature does not match, verify() will raise an InvalidSignature exception.
-    ## TODO: error check yapip validationi yazdirabiliriz
+    # If the signature does not match, verify() will raise an InvalidSignature exception
     try:
         public_key.verify(
             signature,
@@ -176,11 +173,11 @@ def verify_digital_signature(public_key, message, signature):
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH
             ),
-            utils.Prehashed(chosen_hash)
+            utils.Prehashed(hash_function)
         )
-        print("Successfully Verified")
+        print("Successfully Verified Digital Signature")
     except:
-        print("\n\n************************************************An exception occurred while verifying***************************************\n\n")
+        print("\nAn exception occurred while verifying Digital Signature\n")
 
     
     data = "****************Verifier*************" + '\n' 
@@ -192,32 +189,32 @@ def verify_digital_signature(public_key, message, signature):
     
 
 # 4. AES Encryption
-
-def encrypt_with_AES(key, mode, data, size):
+def encrypt_with_AES(key, mode, data, size, file_name):
     padder = pd.PKCS7(len(key)* 8).padder()
     padded_data = padder.update(data)
     padded_data += padder.finalize()
 
-    
-    iv = os.urandom(size)
-    cipher = Cipher(algorithms.AES(key), mode(iv))
+    iv_nonce = os.urandom(size)
+    cipher = Cipher(algorithms.AES(key), mode(iv_nonce))
     encryptor = cipher.encryptor()
 
     start = time.time()
     cipher_text = encryptor.update(padded_data) + encryptor.finalize()
     end = time.time()
-    print("Elapsed time while encrypting: " + str(end - start) + ' secs')
+    print("Elapsed time while encrypting with AES: " + str(end - start) + ' secs')
 
+    write_to_file(file_name, cipher_text)
     return cipher_text, cipher
 
-def decrypt_with_AES(cipher_text, cipher):
+def decrypt_with_AES(cipher_text, cipher, file_name):
     decryptor = cipher.decryptor()
     
     start = time.time()
     decrypted = decryptor.update(cipher_text) + decryptor.finalize()
     end = time.time()
-    print("Elapsed time while decrypting: " + str(end - start) + ' secs')
+    print("Elapsed time while decrypting with AES: " + str(end - start) + ' secs')
 
+    write_to_file(file_name, decrypted)
     return decrypted
 
 # 5. Message Authentication Codes
@@ -230,12 +227,12 @@ def message_auth(key, message):
     return signature
 
 def hasher_fn(message):
-    chosen_hash = hashes.SHA256()
-    hasher = hashes.Hash(chosen_hash)
+    hash_function = hashes.SHA256()
+    hasher = hashes.Hash(hash_function)
     hasher.update(bytes(message, "utf-8"))
     digest = hasher.finalize()
 
-    return digest, chosen_hash
+    return digest, hash_function
 
 
 def write_to_file(fileName, data):
@@ -252,7 +249,8 @@ key_c_private, key_c_public = generate_elliptic_curve_diffie_helman_key_pair("ke
 
 
 # 2-a Generation of symmetric keys using SDKF
-print("----------------------2a-----------------------------------")
+print('\n\n\n')
+print("----------------------2-a-----------------------------------")
 print("***Key_1***")
 key_1 = generate_symmetric_key(16)
 key_encrypt_decrypt(key_a_public, key_a_private, key_1)
@@ -260,67 +258,62 @@ print("***Key_2***")
 key_2 = generate_symmetric_key(32)
 key_encrypt_decrypt(key_a_public, key_a_private, key_2)
 # 2-b Generation of symmetric keys using ECDH
+print("\n----------------------2-b-----------------------------------")
 key_3 = generate_symmetric_with_ECDH(key_b_private, key_b_public, key_c_private, key_c_public)
 
 
 # 3 Generation and Verification of Digital Signature
+print('\n\n\n')
+print("----------------------3-----------------------------------")
 string_1001len = ''.join(random.choices(string.ascii_uppercase + string.digits, k=1001))
 signature = generate_digital_signature(key_a_private, string_1001len)
 verify_digital_signature(key_a_public, string_1001len, signature)
 
 
 # 4. AES Encryption
-# img = "img.png"
-# f = open(img, "rb")
-# data = f.read()
-# img_aes = "img_aes.png"
-# ct, cipher = encrypt_with_AES(key_1, modes.CBC, data, 16)
-# decrypted_data = decrypt_with_AES(ct, cipher)
+print('\n\n\n')
+print("----------------------4-----------------------------------")
 
-# unpadder = pd.PKCS7(128).unpadder()
-# aaa  = unpadder.update(decrypted_data)
-# aaa + unpadder.finalize()
-
-# write_to_file(img_aes, aaa)
-
-
-# print(open("img.png","rb").read() == open("img_aes.png","rb").read())
-
-##encrypt_with_AES(key_2, modes.CBC, data, 8)
-
-
-img = "img.png"
+img = "img.jpg"
 f = open(img, "rb")
 data = f.read()
-img_aes = "img_aes.png"
 
 ## 4. i (128 bit key1 in CBC mode) - a-b-c-d
 print('\n')
-cipher_text, cipher = encrypt_with_AES(key_1, modes.CBC, data, 16)
-cipher_text_2, cipher_2 = encrypt_with_AES(key_1, modes.CBC, data, 16)
-print("For 128 bit key1 in CBC mode, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
+print("----------------------4-i-----------------------------------")
 
-decrypted_data = decrypt_with_AES(cipher_text, cipher)
+cipher_text, cipher = encrypt_with_AES(key_1, modes.CBC, data, 16, "aes-cbc-128-encrypted.jpg")
+cipher_text_2, cipher_2 = encrypt_with_AES(key_1, modes.CBC, data, 16, "aes-cbc-128-encrypted.jpg")
+print("For 128 bit key1 in CBC mode, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
+decrypted_data = decrypt_with_AES(cipher_text, cipher, "aes-cbc-128-decrypted.png")
 
 ## 4. ii (256 bit key2 in CBC mode) - a-b-c-d
 print('\n')
-cipher_text, cipher = encrypt_with_AES(key_2, modes.CBC, data, 16)
-cipher_text_2, cipher_2 = encrypt_with_AES(key_2, modes.CBC, data, 16)
+print("----------------------4-ii-----------------------------------")
+
+cipher_text, cipher = encrypt_with_AES(key_2, modes.CBC, data, 16, "aes-cbc-256-encrypted.jpg")
+cipher_text_2, cipher_2 = encrypt_with_AES(key_2, modes.CBC, data, 16, "aes-cbc-256-encrypted.jpg")
 print("For 256 bit key2 in CBC mode, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
-decrypted_data = decrypt_with_AES(cipher_text, cipher)
+decrypted_data = decrypt_with_AES(cipher_text, cipher, "aes-cbc-256-decrypted.png")
 
 ## 4. iii (256 bit key3 in CTR mode) - a-b-c-d
 print('\n')
-cipher_text, cipher = encrypt_with_AES(key_3, modes.CTR, data, 16)
-cipher_text_2, cipher_2 = encrypt_with_AES(key_3, modes.CTR, data, 16)
-print("For 256 bit key3 in CTR mode, Are ciphertexts same with different IVs: " + str(cipher_text == cipher_text_2))
-decrypted_data = decrypt_with_AES(cipher_text, cipher)
+print("----------------------4-iii-----------------------------------")
+
+cipher_text, cipher = encrypt_with_AES(key_3, modes.CTR, data, 16, "aes-ctr-256-encrypted.jpg")
+cipher_text_2, cipher_2 = encrypt_with_AES(key_3, modes.CTR, data, 16, "aes-ctr-256-encrypted.jpg")
+print("For 256 bit key3 in CTR mode, Are ciphertexts same with different nonces: " + str(cipher_text == cipher_text_2))
+decrypted_data = decrypt_with_AES(cipher_text, cipher, "aes-ctr-256-decrypted.png")
 
 
 
 # 5-a Message Authentication Codes
+print('\n\n\n')
+print("----------------------5a-----------------------------------")
 signature1 = message_auth(key_2, string_1001len)
 print("Message auth code using key2: " + str(signature1))
+
 # 5-b Message Authentication Codes
+print("\n----------------------5b-----------------------------------")
 signature2 = message_auth(key_2, str(key_2))
 print("New key2 with message auth code: " + str(signature2))
